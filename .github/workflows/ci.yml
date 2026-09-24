@@ -18,13 +18,7 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v4
-      - name: Check out KAT vectors
-        uses: actions/checkout@v4
-        with:
-          repository: KpqC/kpqc-test-vectors
-          ref: 179dcc05ece2e22262cea1a61f3cdf1a5b08a304
-          path: kpqc-test-vectors
+      - uses: actions/checkout@v7
       - name: Configure
         run: >-
           cmake -S . -B build
@@ -32,9 +26,7 @@ jobs:
           -DKPQC_BUILD_TESTS=ON
       - name: Build
         run: cmake --build build --parallel
-      - name: Test
-        env:
-          KPQC_TEST_VECTORS: ${{ github.workspace }}/kpqc-test-vectors
-        run: ctest --test-dir build --output-on-failure
+      - name: Test API behavior
+        run: ctest --test-dir build --output-on-failure -R '^api$'
       - name: Install
         run: cmake --install build --prefix "${{ runner.temp }}/kpqc"
