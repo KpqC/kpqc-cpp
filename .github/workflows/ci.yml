@@ -19,6 +19,12 @@ jobs:
         os: [macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v7
+      - name: Check out test vectors
+        uses: actions/checkout@v7
+        with:
+          repository: KpqC/kpqc-test-vectors
+          ref: 179dcc05ece2e22262cea1a61f3cdf1a5b08a304
+          path: kpqc-test-vectors
       - name: Configure
         run: >-
           cmake -S . -B build
@@ -26,7 +32,18 @@ jobs:
           -DKPQC_BUILD_TESTS=ON
       - name: Build
         run: cmake --build build --parallel
-      - name: Test API behavior
-        run: ctest --test-dir build --output-on-failure -R '^api$'
+      - name: Test
+        env:
+          KPQC_TEST_VECTORS: ${{ github.workspace }}/kpqc-test-vectors
+        run: ctest --test-dir build --output-on-failure
       - name: Install
         run: cmake --install build --prefix "${{ runner.temp }}/kpqc"
+      - name: Configure installed-package consumer
+        run: >-
+          cmake -S tests/consumer -B consumer-build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH="${{ runner.temp }}/kpqc"
+      - name: Build installed-package consumer
+        run: cmake --build consumer-build --parallel
+      - name: Test installed-package consumer
+        run: ctest --test-dir consumer-build --output-on-failure
