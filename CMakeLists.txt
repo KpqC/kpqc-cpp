@@ -13,6 +13,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(KPQC_BUILD_TESTS "Build KpqC tests" OFF)
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(KPQC_WARNINGS_AS_ERRORS_DEFAULT ON)
+else()
+    set(KPQC_WARNINGS_AS_ERRORS_DEFAULT OFF)
+endif()
+option(
+    KPQC_WARNINGS_AS_ERRORS
+    "Treat warnings in KpqC-owned sources as errors"
+    ${KPQC_WARNINGS_AS_ERRORS_DEFAULT})
 
 set(PQC_FIPS202_SYMBOLS
     sha3_256 sha3_256_inc_absorb sha3_256_inc_ctx_clone
@@ -56,6 +65,20 @@ function(kpqc_rename_symbols target name)
     endforeach()
 endfunction()
 
+function(kpqc_enable_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+        if(KPQC_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE /WX)
+        endif()
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+        if(KPQC_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endif()
+endfunction()
+
 function(kpqc_object_library target group name random_source wrapper include_dir)
     add_library(${target} OBJECT ${wrapper} ${random_source} ${ARGN})
     target_include_directories(${target} PRIVATE ${include_dir})
@@ -63,14 +86,13 @@ function(kpqc_object_library target group name random_source wrapper include_dir
         "KPQC_PREFIX=kpqc_${name}_"
         "randombytes=kpqc_${name}_randombytes")
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX)
         set_source_files_properties(${ARGN} PROPERTIES COMPILE_OPTIONS /W0)
     else()
-        target_compile_options(${target} PRIVATE
-            -fvisibility=hidden -Wall -Wextra -Wpedantic -Werror)
+        target_compile_options(${target} PRIVATE -fvisibility=hidden)
         set_source_files_properties(${ARGN} PROPERTIES
             COMPILE_OPTIONS "-fno-strict-aliasing;-w")
     endif()
+    kpqc_enable_warnings(${target})
     set_property(GLOBAL APPEND PROPERTY "KPQC_${group}_OBJECT_TARGETS" ${target})
 endfunction()
 
@@ -177,14 +199,13 @@ function(kpqc_configure_cpp_target target)
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX)
         target_link_libraries(${target} PUBLIC bcrypt)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
         if(UNIX AND NOT APPLE)
             target_link_libraries(${target} PUBLIC m)
         endif()
     endif()
+    kpqc_enable_warnings(${target})
 endfunction()
 
 kpqc_configure_core(production native/randombytes.c production_objects)
