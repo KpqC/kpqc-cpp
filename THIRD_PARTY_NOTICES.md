@@ -10,3 +10,6 @@ implementations:
 
 These components are distributed under the MIT License. Their original license
 texts are included under `vendor/`.
+
+KpqC-specific integration and hardening changes are documented in
+[`VENDORING.md`](VENDORING.md).

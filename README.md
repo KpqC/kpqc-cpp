@@ -117,7 +117,10 @@ const kpqc::KeyEncapsulationAlgorithm& key_exchange =
 ## Data and failures
 
 Binary inputs and outputs use `kpqc::Bytes`, an alias for
-`std::vector<std::uint8_t>`. Each algorithm exposes `id()` and `sizes()`.
+`std::vector<std::uint8_t>`. Secret keys and shared secrets use
+`kpqc::SecretBytes`, whose allocator erases its storage before releasing it.
+Call `kpqc::secure_clear()` to erase either byte container before the end of
+its lifetime. Each algorithm exposes `id()` and `sizes()`.
 
 Wrong-sized inputs and contexts over 255 bytes raise `std::invalid_argument`.
 Signature verification returns `false` for an invalid signature. Native
@@ -171,6 +174,10 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
+Warnings in KpqC-owned sources are treated as errors for a top-level build.
+Set `KPQC_WARNINGS_AS_ERRORS=OFF` when embedding the project if the surrounding
+toolchain requires a different warning policy.
+
 ## Distribution
 
 The installation includes a static library, the public C++ header, CMake
@@ -184,5 +191,11 @@ This package has not received an independent security audit and does not
 provide a constant-time execution guarantee. Assess those constraints before
 using it with sensitive production keys.
 
+`SecretBytes` reduces the lifetime of secrets in released heap storage, but it
+cannot erase copies made by callers or temporary values retained inside an
+upstream implementation.
+
 Third-party licenses and attributions are listed in
 [THIRD_PARTY_NOTICES.md](https://github.com/KpqC/kpqc-cpp/blob/main/THIRD_PARTY_NOTICES.md).
+Local changes to those sources are documented in
+[VENDORING.md](https://github.com/KpqC/kpqc-cpp/blob/main/VENDORING.md).
