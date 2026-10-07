@@ -3,23 +3,73 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace kpqc {
 
 using Bytes = std::vector<std::uint8_t>;
 
+namespace detail {
+
+void secure_erase(void* data, std::size_t size) noexcept;
+
+template <typename T>
+class SecureAllocator {
+public:
+    using value_type = T;
+    using is_always_equal = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+
+    SecureAllocator() noexcept = default;
+
+    template <typename U>
+    SecureAllocator(const SecureAllocator<U>&) noexcept {}
+
+    [[nodiscard]] T* allocate(std::size_t count) {
+        return std::allocator<T>{}.allocate(count);
+    }
+
+    void deallocate(T* pointer, std::size_t count) noexcept {
+        secure_erase(pointer, count * sizeof(T));
+        std::allocator<T>{}.deallocate(pointer, count);
+    }
+};
+
+template <typename T, typename U>
+constexpr bool operator==(
+    const SecureAllocator<T>&,
+    const SecureAllocator<U>&) noexcept {
+    return true;
+}
+
+template <typename T, typename U>
+constexpr bool operator!=(
+    const SecureAllocator<T>&,
+    const SecureAllocator<U>&) noexcept {
+    return false;
+}
+
+}  // namespace detail
+
+using SecretBytes =
+    std::vector<std::uint8_t, detail::SecureAllocator<std::uint8_t>>;
+
+void secure_clear(Bytes& value) noexcept;
+void secure_clear(SecretBytes& value) noexcept;
+
 struct KeyPair {
     Bytes public_key;
-    Bytes secret_key;
+    SecretBytes secret_key;
 };
 
 struct EncapsulatedSecret {
     Bytes ciphertext;
-    Bytes shared_secret;
+    SecretBytes shared_secret;
 };
 
 struct SignatureSizes {
@@ -39,8 +89,8 @@ class Error final : public std::runtime_error {
 public:
     Error(std::string operation, int status);
 
-    const std::string& operation() const noexcept;
-    int status() const noexcept;
+    [[nodiscard]] const std::string& operation() const noexcept;
+    [[nodiscard]] int status() const noexcept;
 
 private:
     std::string operation_;
@@ -53,15 +103,19 @@ struct Registry;
 
 class SignatureAlgorithm final {
 public:
-    std::string_view id() const noexcept;
-    const SignatureSizes& sizes() const noexcept;
+    [[nodiscard]] std::string_view id() const noexcept;
+    [[nodiscard]] const SignatureSizes& sizes() const noexcept;
 
-    KeyPair generate_key_pair() const;
-    Bytes sign(
+    [[nodiscard]] KeyPair generate_key_pair() const;
+    [[nodiscard]] Bytes sign(
+        const Bytes& message,
+        const SecretBytes& secret_key,
+        const Bytes& context = {}) const;
+    [[nodiscard]] Bytes sign(
         const Bytes& message,
         const Bytes& secret_key,
         const Bytes& context = {}) const;
-    bool verify(
+    [[nodiscard]] bool verify(
         const Bytes& message,
         const Bytes& signature,
         const Bytes& public_key,
@@ -83,6 +137,12 @@ private:
         SignFunction sign,
         VerifyFunction verify) noexcept;
 
+    Bytes sign_with_key(
+        const Bytes& message,
+        const std::uint8_t* secret_key,
+        std::size_t secret_key_size,
+        const Bytes& context) const;
+
     const char* id_;
     SignatureSizes sizes_;
     KeyPairFunction key_pair_;
@@ -94,12 +154,17 @@ private:
 
 class KeyEncapsulationAlgorithm final {
 public:
-    std::string_view id() const noexcept;
-    const KemSizes& sizes() const noexcept;
+    [[nodiscard]] std::string_view id() const noexcept;
+    [[nodiscard]] const KemSizes& sizes() const noexcept;
 
-    KeyPair generate_key_pair() const;
-    EncapsulatedSecret encapsulate(const Bytes& public_key) const;
-    Bytes decapsulate(const Bytes& ciphertext, const Bytes& secret_key) const;
+    [[nodiscard]] KeyPair generate_key_pair() const;
+    [[nodiscard]] EncapsulatedSecret encapsulate(const Bytes& public_key) const;
+    [[nodiscard]] SecretBytes decapsulate(
+        const Bytes& ciphertext,
+        const SecretBytes& secret_key) const;
+    [[nodiscard]] SecretBytes decapsulate(
+        const Bytes& ciphertext,
+        const Bytes& secret_key) const;
 
 private:
     using KeyPairFunction = int (*)(std::uint8_t*, std::uint8_t*);
@@ -115,6 +180,11 @@ private:
         EncapsulateFunction encapsulate,
         DecapsulateFunction decapsulate) noexcept;
 
+    SecretBytes decapsulate_with_key(
+        const Bytes& ciphertext,
+        const std::uint8_t* secret_key,
+        std::size_t secret_key_size) const;
+
     const char* id_;
     KemSizes sizes_;
     KeyPairFunction key_pair_;
@@ -125,31 +195,31 @@ private:
 };
 
 namespace aimer {
-const SignatureAlgorithm& aimer128f() noexcept;
-const SignatureAlgorithm& aimer128s() noexcept;
-const SignatureAlgorithm& aimer192f() noexcept;
-const SignatureAlgorithm& aimer192s() noexcept;
-const SignatureAlgorithm& aimer256f() noexcept;
-const SignatureAlgorithm& aimer256s() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer128f() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer128s() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer192f() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer192s() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer256f() noexcept;
+[[nodiscard]] const SignatureAlgorithm& aimer256s() noexcept;
 }
 
 namespace haetae {
-const SignatureAlgorithm& haetae2() noexcept;
-const SignatureAlgorithm& haetae3() noexcept;
-const SignatureAlgorithm& haetae5() noexcept;
+[[nodiscard]] const SignatureAlgorithm& haetae2() noexcept;
+[[nodiscard]] const SignatureAlgorithm& haetae3() noexcept;
+[[nodiscard]] const SignatureAlgorithm& haetae5() noexcept;
 }
 
 namespace ntruplus {
-const KeyEncapsulationAlgorithm& ntruplus768() noexcept;
-const KeyEncapsulationAlgorithm& ntruplus864() noexcept;
-const KeyEncapsulationAlgorithm& ntruplus1152() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& ntruplus768() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& ntruplus864() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& ntruplus1152() noexcept;
 }
 
 namespace smaugt {
-const KeyEncapsulationAlgorithm& smaugt128() noexcept;
-const KeyEncapsulationAlgorithm& smaugt192() noexcept;
-const KeyEncapsulationAlgorithm& smaugt256() noexcept;
-const KeyEncapsulationAlgorithm& timer() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& smaugt128() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& smaugt192() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& smaugt256() noexcept;
+[[nodiscard]] const KeyEncapsulationAlgorithm& timer() noexcept;
 }
 
 }  // namespace kpqc

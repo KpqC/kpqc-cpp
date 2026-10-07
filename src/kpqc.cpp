@@ -13,23 +13,16 @@ const std::uint8_t* input(const Bytes& value) noexcept {
     return value.empty() ? &empty_input : value.data();
 }
 
-void clear(Bytes& value) noexcept {
-    volatile std::uint8_t* cursor = value.data();
-    for (std::size_t index = 0; index < value.size(); ++index) {
-        cursor[index] = 0;
-    }
-}
-
 void require_size(
-    const Bytes& value,
+    std::size_t actual,
     std::size_t expected,
     std::string_view label) {
-    if (value.size() == expected) {
+    if (actual == expected) {
         return;
     }
     std::ostringstream message;
     message << label << " must be " << expected << " bytes, received "
-            << value.size();
+            << actual;
     throw std::invalid_argument(message.str());
 }
 
@@ -49,6 +42,28 @@ std::string error_message(const std::string& operation, int status) {
 }
 
 }  // namespace
+
+namespace detail {
+
+void secure_erase(void* data, std::size_t size) noexcept {
+    volatile std::uint8_t* cursor = static_cast<volatile std::uint8_t*>(data);
+    while (size != 0) {
+        *cursor++ = 0;
+        --size;
+    }
+}
+
+}  // namespace detail
+
+void secure_clear(Bytes& value) noexcept {
+    detail::secure_erase(value.data(), value.size());
+    value.clear();
+}
+
+void secure_clear(SecretBytes& value) noexcept {
+    detail::secure_erase(value.data(), value.size());
+    value.clear();
+}
 
 Error::Error(std::string operation, int status)
     : std::runtime_error(error_message(operation, status)),
@@ -84,11 +99,12 @@ const SignatureSizes& SignatureAlgorithm::sizes() const noexcept {
 }
 
 KeyPair SignatureAlgorithm::generate_key_pair() const {
-    KeyPair result{Bytes(sizes_.public_key), Bytes(sizes_.secret_key)};
-    const int status = key_pair_(result.public_key.data(), result.secret_key.data());
+    KeyPair result{Bytes(sizes_.public_key), SecretBytes(sizes_.secret_key)};
+    const int status =
+        key_pair_(result.public_key.data(), result.secret_key.data());
     if (status != 0) {
-        clear(result.public_key);
-        clear(result.secret_key);
+        secure_clear(result.public_key);
+        secure_clear(result.secret_key);
         throw Error("key generation", status);
     }
     return result;
@@ -96,18 +112,35 @@ KeyPair SignatureAlgorithm::generate_key_pair() const {
 
 Bytes SignatureAlgorithm::sign(
     const Bytes& message,
+    const SecretBytes& secret_key,
+    const Bytes& context) const {
+    return sign_with_key(
+        message, secret_key.data(), secret_key.size(), context);
+}
+
+Bytes SignatureAlgorithm::sign(
+    const Bytes& message,
     const Bytes& secret_key,
     const Bytes& context) const {
-    require_size(secret_key, sizes_.secret_key, "secret_key");
+    return sign_with_key(
+        message, secret_key.data(), secret_key.size(), context);
+}
+
+Bytes SignatureAlgorithm::sign_with_key(
+    const Bytes& message,
+    const std::uint8_t* secret_key,
+    std::size_t secret_key_size,
+    const Bytes& context) const {
+    require_size(secret_key_size, sizes_.secret_key, "secret_key");
     require_context(context);
 
     Bytes signature(sizes_.signature);
     std::size_t signature_length = 0;
     const int status = sign_(
         signature.data(), &signature_length, input(message), message.size(),
-        input(context), context.size(), secret_key.data());
+        input(context), context.size(), secret_key);
     if (status != 0 || signature_length != sizes_.signature) {
-        clear(signature);
+        secure_clear(signature);
         throw Error("signing", status != 0 ? status : -1);
     }
     return signature;
@@ -118,7 +151,7 @@ bool SignatureAlgorithm::verify(
     const Bytes& signature,
     const Bytes& public_key,
     const Bytes& context) const {
-    require_size(public_key, sizes_.public_key, "public_key");
+    require_size(public_key.size(), sizes_.public_key, "public_key");
     require_context(context);
     if (signature.size() != sizes_.signature) {
         return false;
@@ -153,11 +186,12 @@ const KemSizes& KeyEncapsulationAlgorithm::sizes() const noexcept {
 }
 
 KeyPair KeyEncapsulationAlgorithm::generate_key_pair() const {
-    KeyPair result{Bytes(sizes_.public_key), Bytes(sizes_.secret_key)};
-    const int status = key_pair_(result.public_key.data(), result.secret_key.data());
+    KeyPair result{Bytes(sizes_.public_key), SecretBytes(sizes_.secret_key)};
+    const int status =
+        key_pair_(result.public_key.data(), result.secret_key.data());
     if (status != 0) {
-        clear(result.public_key);
-        clear(result.secret_key);
+        secure_clear(result.public_key);
+        secure_clear(result.secret_key);
         throw Error("key generation", status);
     }
     return result;
@@ -165,29 +199,45 @@ KeyPair KeyEncapsulationAlgorithm::generate_key_pair() const {
 
 EncapsulatedSecret KeyEncapsulationAlgorithm::encapsulate(
     const Bytes& public_key) const {
-    require_size(public_key, sizes_.public_key, "public_key");
+    require_size(public_key.size(), sizes_.public_key, "public_key");
     EncapsulatedSecret result{
-        Bytes(sizes_.ciphertext), Bytes(sizes_.shared_secret)};
+        Bytes(sizes_.ciphertext), SecretBytes(sizes_.shared_secret)};
     const int status = encapsulate_(
-        result.ciphertext.data(), result.shared_secret.data(), public_key.data());
+        result.ciphertext.data(), result.shared_secret.data(),
+        public_key.data());
     if (status != 0) {
-        clear(result.ciphertext);
-        clear(result.shared_secret);
+        secure_clear(result.ciphertext);
+        secure_clear(result.shared_secret);
         throw Error("encapsulation", status);
     }
     return result;
 }
 
-Bytes KeyEncapsulationAlgorithm::decapsulate(
+SecretBytes KeyEncapsulationAlgorithm::decapsulate(
+    const Bytes& ciphertext,
+    const SecretBytes& secret_key) const {
+    return decapsulate_with_key(
+        ciphertext, secret_key.data(), secret_key.size());
+}
+
+SecretBytes KeyEncapsulationAlgorithm::decapsulate(
     const Bytes& ciphertext,
     const Bytes& secret_key) const {
-    require_size(ciphertext, sizes_.ciphertext, "ciphertext");
-    require_size(secret_key, sizes_.secret_key, "secret_key");
-    Bytes shared_secret(sizes_.shared_secret);
+    return decapsulate_with_key(
+        ciphertext, secret_key.data(), secret_key.size());
+}
+
+SecretBytes KeyEncapsulationAlgorithm::decapsulate_with_key(
+    const Bytes& ciphertext,
+    const std::uint8_t* secret_key,
+    std::size_t secret_key_size) const {
+    require_size(ciphertext.size(), sizes_.ciphertext, "ciphertext");
+    require_size(secret_key_size, sizes_.secret_key, "secret_key");
+    SecretBytes shared_secret(sizes_.shared_secret);
     const int status = decapsulate_(
-        shared_secret.data(), ciphertext.data(), secret_key.data());
+        shared_secret.data(), ciphertext.data(), secret_key);
     if (status != 0) {
-        clear(shared_secret);
+        secure_clear(shared_secret);
         throw Error("decapsulation", status);
     }
     return shared_secret;

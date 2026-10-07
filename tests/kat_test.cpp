@@ -78,6 +78,11 @@ void require(bool condition, const std::string& label) {
     }
 }
 
+bool same_bytes(const kpqc::SecretBytes& left, const kpqc::Bytes& right) {
+    return left.size() == right.size() &&
+        std::equal(left.begin(), left.end(), right.begin());
+}
+
 void expect_native_error(
     const std::function<void()>& action,
     const std::string& label) {
@@ -178,7 +183,8 @@ void check_signature(const SignatureCase& test, const Vector& vector) {
 
     const kpqc::KeyPair keys = test.algorithm->generate_key_pair();
     require(keys.public_key == binary(vector, "pk"), label + " public key");
-    require(keys.secret_key == binary(vector, "sk"), label + " secret key");
+    require(same_bytes(keys.secret_key, binary(vector, "sk")),
+            label + " secret key");
 
     kpqc::Bytes context;
     if (test.uses_kat_context) {
@@ -216,11 +222,12 @@ void check_kem(const KemCase& test, const Vector& vector) {
 
     const kpqc::KeyPair keys = test.algorithm->generate_key_pair();
     require(keys.public_key == binary(vector, "pk"), label + " public key");
-    require(keys.secret_key == binary(vector, "sk"), label + " secret key");
+    require(same_bytes(keys.secret_key, binary(vector, "sk")),
+            label + " secret key");
     const kpqc::EncapsulatedSecret result =
         test.algorithm->encapsulate(keys.public_key);
     require(result.ciphertext == binary(vector, "ct"), label + " ciphertext");
-    require(result.shared_secret == binary(vector, "ss"),
+    require(same_bytes(result.shared_secret, binary(vector, "ss")),
             label + " shared secret");
     require(test.algorithm->decapsulate(result.ciphertext, keys.secret_key) ==
                 result.shared_secret,

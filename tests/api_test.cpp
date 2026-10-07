@@ -86,7 +86,7 @@ void check_kem(const KemCase& test) {
     kpqc::Bytes altered_ciphertext = outbound.ciphertext;
     altered_ciphertext.front() ^= 1U;
     if (test.implicit_rejection) {
-        const kpqc::Bytes replacement =
+        const kpqc::SecretBytes replacement =
             algorithm.decapsulate(altered_ciphertext, keys.secret_key);
         require(replacement != outbound.shared_secret,
                 std::string(algorithm.id()) + " implicit rejection");
@@ -153,17 +153,26 @@ int main() {
             kpqc::aimer::aimer128f();
         const kpqc::KeyPair signature_keys = signature.generate_key_pair();
         expect_invalid_argument(
-            [&signature] { signature.sign({}, {0}); }, "short secret key");
+            [&signature] {
+                static_cast<void>(signature.sign({}, kpqc::Bytes{0}));
+            },
+            "short secret key");
         expect_invalid_argument(
             [&signature, &signature_keys] {
-                signature.sign({}, signature_keys.secret_key, kpqc::Bytes(256));
+                static_cast<void>(signature.sign(
+                    {}, signature_keys.secret_key, kpqc::Bytes(256)));
             },
             "long signature context");
 
         const kpqc::KeyEncapsulationAlgorithm& kem =
             kpqc::ntruplus::ntruplus768();
         expect_invalid_argument(
-            [&kem] { kem.encapsulate({0}); }, "short public key");
+            [&kem] { static_cast<void>(kem.encapsulate({0})); },
+            "short public key");
+
+        kpqc::SecretBytes secret{1, 2, 3, 4};
+        kpqc::secure_clear(secret);
+        require(secret.empty(), "explicit secret clearing");
 
         std::cout << "C++ API behavior checks passed across 16 parameter sets.\n";
         return 0;
