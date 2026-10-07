@@ -105,7 +105,9 @@ function(kpqc_add_haetae group name mode random_source)
     endforeach()
     kpqc_object_library(${target} ${group} ${name} ${random_source}
         native/signature.c ${root}/include ${sources})
-    target_compile_definitions(${target} PRIVATE HAETAE_CONFIG_MODE=${mode})
+    target_compile_definitions(${target} PRIVATE
+        HAETAE_CONFIG_MODE=${mode}
+        HAETAE_CONFIG_NAMESPACE_PREFIX=kpqc_cryptolab_haetae_)
     kpqc_rename_symbols(${target} ${name}
         ${COMPACT_FIPS202_SYMBOLS} ${HAETAE_SYMBOLS})
 endfunction()
@@ -135,7 +137,9 @@ function(kpqc_add_smaugt group name mode random_source)
     endforeach()
     kpqc_object_library(${target} ${group} ${name} ${random_source}
         native/kem.c ${root}/include ${sources})
-    target_compile_definitions(${target} PRIVATE SMAUGT_CONFIG_MODE=${mode})
+    target_compile_definitions(${target} PRIVATE
+        SMAUGT_CONFIG_MODE=${mode}
+        SMAUGT_CONFIG_NAMESPACE_PREFIX=kpqc_cryptolab_smaugt_)
     kpqc_rename_symbols(${target} ${name}
         ${COMPACT_FIPS202_SYMBOLS} ${SMAUGT_SYMBOLS})
 endfunction()
@@ -216,6 +220,15 @@ if(KPQC_BUILD_TESTS)
         "KPQC_DEFAULT_VECTOR_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../kpqc-test-vectors\"")
     kpqc_configure_cpp_target(kpqc_kat_test)
     add_test(NAME kat COMMAND kpqc_kat_test)
+
+    if(CMAKE_NM)
+        add_test(
+            NAME symbols
+            COMMAND ${CMAKE_COMMAND}
+                "-DNM_EXECUTABLE=${CMAKE_NM}"
+                "-DLIBRARY_FILE=$<TARGET_FILE:kpqc>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_symbols.cmake")
+    endif()
 endif()
 
 install(TARGETS kpqc EXPORT kpqcTargets
