@@ -164,7 +164,7 @@ All sizes are in bytes.
 ## Known-answer tests
 
 The implementation is tested against all 1,600 KAT records in
-[KpqC/kpqc-test-vectors at commit 179dcc05ece2](https://github.com/KpqC/kpqc-test-vectors/tree/179dcc05ece2e22262cea1a61f3cdf1a5b08a304).
+[KpqC/kpqc-test-vectors at commit d75490bf824f](https://github.com/KpqC/kpqc-test-vectors/tree/d75490bf824faa4b148cd0b901a2eb13198fe0da).
 The tests use a sibling `kpqc-test-vectors` checkout by default, or the path in
 `KPQC_TEST_VECTORS`. The vector files are not duplicated in this repository.
 

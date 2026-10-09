@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: KpqC/kpqc-test-vectors
-          ref: 179dcc05ece2e22262cea1a61f3cdf1a5b08a304
+          ref: d75490bf824faa4b148cd0b901a2eb13198fe0da
           path: kpqc-test-vectors
       - name: Configure
         run: >-
@@ -62,7 +62,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: KpqC/kpqc-test-vectors
-          ref: 179dcc05ece2e22262cea1a61f3cdf1a5b08a304
+          ref: d75490bf824faa4b148cd0b901a2eb13198fe0da
           path: kpqc-test-vectors
       - name: Configure
         run: >-
