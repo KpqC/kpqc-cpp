@@ -149,7 +149,7 @@ All sizes are in bytes.
 | `haetae3` | 1,472 | 2,112 | 2,349 |
 | `haetae5` | 2,080 | 2,752 | 2,948 |
 
-#### KEM
+#### KEMs
 
 | Accessor | Public key | Secret key | Ciphertext | Shared secret |
 | --- | ---: | ---: | ---: | ---: |
