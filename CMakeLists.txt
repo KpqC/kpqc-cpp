@@ -23,7 +23,7 @@ option(
     "Treat warnings in KpqC-owned sources as errors"
     ${KPQC_WARNINGS_AS_ERRORS_DEFAULT})
 
-set(PQC_FIPS202_SYMBOLS
+set(KPQC_FIPS202_SYMBOLS
     sha3_256 sha3_256_inc_absorb sha3_256_inc_ctx_clone
     sha3_256_inc_ctx_release sha3_256_inc_finalize sha3_256_inc_init
     sha3_384 sha3_384_inc_absorb sha3_384_inc_ctx_clone
@@ -38,25 +38,11 @@ set(PQC_FIPS202_SYMBOLS
     shake256_inc_ctx_release shake256_inc_finalize shake256_inc_init
     shake256_inc_squeeze shake256_squeezeblocks)
 
-set(COMPACT_FIPS202_SYMBOLS
+set(KPQC_COMPACT_FIPS202_SYMBOLS
     KeccakF_RoundConstants sha3_256 sha3_512 shake128 shake128_absorb
     shake128_absorb_once shake128_finalize shake128_init shake128_squeeze
     shake128_squeezeblocks shake256 shake256_absorb shake256_absorb_once
     shake256_finalize shake256_init shake256_squeeze shake256_squeezeblocks)
-
-set(NTRUPLUS_SYMBOLS
-    baseinv basemul basemul_add crypto_kem_dec crypto_kem_enc
-    crypto_kem_keypair hash_f hash_g hash_h invntt ntt poly_baseinv
-    poly_basemul poly_basemul_add poly_cbd1 poly_crepmod3 poly_frombytes
-    poly_invntt poly_ntt poly_sotp_decode poly_sotp_encode poly_sub
-    poly_tobytes poly_triple zetas)
-
-set(HAETAE_SYMBOLS
-    brv8 fix_round hammingWeight_8 polyfixfix_sub sample_gauss
-    shake128_stream_init shake256_absorb_thrice shake256_absorb_twice
-    shake256_stream_init start_cube start_times_threehalves)
-
-set(SMAUGT_SYMBOLS flipabs shake256_absorb_twice_squeeze)
 
 function(kpqc_rename_symbols target name)
     foreach(symbol IN LISTS ARGN)
@@ -96,75 +82,10 @@ function(kpqc_object_library target group name random_source wrapper include_dir
     set_property(GLOBAL APPEND PROPERTY "KPQC_${group}_OBJECT_TARGETS" ${target})
 endfunction()
 
-function(kpqc_add_aimer group parameter random_source)
-    set(name "aimer${parameter}")
-    set(target "kpqc_${group}_${name}")
-    set(root "${CMAKE_CURRENT_SOURCE_DIR}/vendor/AIMer")
-    string(SUBSTRING "${parameter}" 0 3 field_size)
-    kpqc_object_library(${target} ${group} ${name} ${random_source}
-        native/signature.c ${root}
-        ${root}/aim3.c
-        ${root}/field_common.c
-        ${root}/hash.c
-        ${root}/sign.c
-        ${root}/tree.c
-        ${root}/field${field_size}.c
-        ${root}/common/fips202.c)
-    target_include_directories(${target} PRIVATE ${root}/common)
-    target_compile_definitions(${target} PRIVATE PARAMS=${parameter} KPQC_AIMER=1)
-    kpqc_rename_symbols(${target} ${name}
-        crypto_sign_keypair_internal crypto_sign_signature_internal
-        crypto_sign_verify_internal ${PQC_FIPS202_SYMBOLS})
-endfunction()
-
-function(kpqc_add_haetae group name mode random_source)
-    set(target "kpqc_${group}_${name}")
-    set(root "${CMAKE_CURRENT_SOURCE_DIR}/vendor/HAETAE")
-    set(sources)
-    foreach(source decompose encoding fft fixpoint ntt packing poly polyfix
-                   polymat polyvec reduce sampler sign fips202 symmetric-shake)
-        list(APPEND sources "${root}/src/${source}.c")
-    endforeach()
-    kpqc_object_library(${target} ${group} ${name} ${random_source}
-        native/signature.c ${root}/include ${sources})
-    target_compile_definitions(${target} PRIVATE
-        HAETAE_CONFIG_MODE=${mode}
-        HAETAE_CONFIG_NAMESPACE_PREFIX=kpqc_cryptolab_haetae_)
-    kpqc_rename_symbols(${target} ${name}
-        ${COMPACT_FIPS202_SYMBOLS} ${HAETAE_SYMBOLS})
-endfunction()
-
-function(kpqc_add_ntruplus group parameter random_source)
-    set(name "ntruplus${parameter}")
-    set(target "kpqc_${group}_${name}")
-    set(root "${CMAKE_CURRENT_SOURCE_DIR}/vendor/NTRUplus/NTRU+${parameter}")
-    kpqc_object_library(${target} ${group} ${name} ${random_source}
-        native/kem.c ${root}
-        ${root}/kem.c
-        ${root}/ntt.c
-        ${root}/poly.c
-        ${root}/symmetric.c
-        ${root}/fips202/fips202.c)
-    kpqc_rename_symbols(${target} ${name}
-        ${NTRUPLUS_SYMBOLS} ${PQC_FIPS202_SYMBOLS})
-endfunction()
-
-function(kpqc_add_smaugt group name mode random_source)
-    set(target "kpqc_${group}_${name}")
-    set(root "${CMAKE_CURRENT_SOURCE_DIR}/vendor/SMAUG-T")
-    set(sources)
-    foreach(source cbd ciphertext dg hash hwt indcpa kem key pack packring
-                   poly toomcook verify fips202)
-        list(APPEND sources "${root}/src/${source}.c")
-    endforeach()
-    kpqc_object_library(${target} ${group} ${name} ${random_source}
-        native/kem.c ${root}/include ${sources})
-    target_compile_definitions(${target} PRIVATE
-        SMAUGT_CONFIG_MODE=${mode}
-        SMAUGT_CONFIG_NAMESPACE_PREFIX=kpqc_cryptolab_smaugt_)
-    kpqc_rename_symbols(${target} ${name}
-        ${COMPACT_FIPS202_SYMBOLS} ${SMAUGT_SYMBOLS})
-endfunction()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/algorithms/AIMer.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/algorithms/HAETAE.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/algorithms/NTRUplus.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/algorithms/SMAUGT.cmake")
 
 function(kpqc_configure_core group random_source output_variable)
     foreach(parameter 128f 128s 192f 192s 256f 256s)

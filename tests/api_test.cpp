@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -36,12 +37,30 @@ void expect_native_error(
     throw std::runtime_error(label + " did not report a native failure");
 }
 
+struct SignatureCase {
+    const kpqc::SignatureAlgorithm* algorithm;
+    std::string_view id;
+    kpqc::SignatureSizes sizes;
+};
+
 struct KemCase {
     const kpqc::KeyEncapsulationAlgorithm* algorithm;
+    std::string_view id;
+    kpqc::KemSizes sizes;
     bool implicit_rejection;
 };
 
-void check_signature(const kpqc::SignatureAlgorithm& algorithm) {
+void check_signature(const SignatureCase& test) {
+    const kpqc::SignatureAlgorithm& algorithm = *test.algorithm;
+    const kpqc::SignatureSizes& sizes = algorithm.sizes();
+    require(algorithm.id() == test.id, std::string(test.id) + " identifier");
+    require(sizes.public_key == test.sizes.public_key,
+            std::string(test.id) + " declared public-key size");
+    require(sizes.secret_key == test.sizes.secret_key,
+            std::string(test.id) + " declared secret-key size");
+    require(sizes.signature == test.sizes.signature,
+            std::string(test.id) + " declared signature size");
+
     const kpqc::KeyPair keys = algorithm.generate_key_pair();
     require(keys.public_key.size() == algorithm.sizes().public_key,
             std::string(algorithm.id()) + " public-key size");
@@ -68,6 +87,17 @@ void check_signature(const kpqc::SignatureAlgorithm& algorithm) {
 
 void check_kem(const KemCase& test) {
     const kpqc::KeyEncapsulationAlgorithm& algorithm = *test.algorithm;
+    const kpqc::KemSizes& sizes = algorithm.sizes();
+    require(algorithm.id() == test.id, std::string(test.id) + " identifier");
+    require(sizes.public_key == test.sizes.public_key,
+            std::string(test.id) + " declared public-key size");
+    require(sizes.secret_key == test.sizes.secret_key,
+            std::string(test.id) + " declared secret-key size");
+    require(sizes.ciphertext == test.sizes.ciphertext,
+            std::string(test.id) + " declared ciphertext size");
+    require(sizes.shared_secret == test.sizes.shared_secret,
+            std::string(test.id) + " declared shared-secret size");
+
     const kpqc::KeyPair keys = algorithm.generate_key_pair();
     require(keys.public_key.size() == algorithm.sizes().public_key,
             std::string(algorithm.id()) + " public-key size");
@@ -125,25 +155,36 @@ void check_kem(const KemCase& test) {
 
 int main() {
     try {
-        const std::array<const kpqc::SignatureAlgorithm*, 9> signatures{{
-            &kpqc::aimer::aimer128f(), &kpqc::aimer::aimer128s(),
-            &kpqc::aimer::aimer192f(), &kpqc::aimer::aimer192s(),
-            &kpqc::aimer::aimer256f(), &kpqc::aimer::aimer256s(),
-            &kpqc::haetae::haetae2(), &kpqc::haetae::haetae3(),
-            &kpqc::haetae::haetae5(),
+        const std::array<SignatureCase, 9> signatures{{
+            {&kpqc::aimer::aimer128f(), "aimer-128f", {32, 48, 6944}},
+            {&kpqc::aimer::aimer128s(), "aimer-128s", {32, 48, 4704}},
+            {&kpqc::aimer::aimer192f(), "aimer-192f", {48, 72, 15408}},
+            {&kpqc::aimer::aimer192s(), "aimer-192s", {48, 72, 10320}},
+            {&kpqc::aimer::aimer256f(), "aimer-256f", {64, 96, 31360}},
+            {&kpqc::aimer::aimer256s(), "aimer-256s", {64, 96, 20224}},
+            {&kpqc::haetae::haetae2(), "haetae-mode2", {992, 1408, 1474}},
+            {&kpqc::haetae::haetae3(), "haetae-mode3", {1472, 2112, 2349}},
+            {&kpqc::haetae::haetae5(), "haetae-mode5", {2080, 2752, 2948}},
         }};
         const std::array<KemCase, 7> kems{{
-            {&kpqc::ntruplus::ntruplus768(), false},
-            {&kpqc::ntruplus::ntruplus864(), false},
-            {&kpqc::ntruplus::ntruplus1152(), false},
-            {&kpqc::smaugt::smaugt128(), true},
-            {&kpqc::smaugt::smaugt192(), true},
-            {&kpqc::smaugt::smaugt256(), true},
-            {&kpqc::smaugt::timer(), true},
+            {&kpqc::ntruplus::ntruplus768(),
+             "NTRU+768", {1152, 2336, 1152, 32}, false},
+            {&kpqc::ntruplus::ntruplus864(),
+             "NTRU+864", {1296, 2624, 1296, 32}, false},
+            {&kpqc::ntruplus::ntruplus1152(),
+             "NTRU+1152", {1728, 3488, 1728, 32}, false},
+            {&kpqc::smaugt::smaugt128(),
+             "SMAUG-T128", {672, 832, 672, 32}, true},
+            {&kpqc::smaugt::smaugt192(),
+             "SMAUG-T192", {1088, 1312, 992, 32}, true},
+            {&kpqc::smaugt::smaugt256(),
+             "SMAUG-T256", {1440, 1728, 1376, 32}, true},
+            {&kpqc::smaugt::timer(),
+             "TiMER", {672, 832, 608, 32}, true},
         }};
 
-        for (const kpqc::SignatureAlgorithm* algorithm : signatures) {
-            check_signature(*algorithm);
+        for (const SignatureCase& test : signatures) {
+            check_signature(test);
         }
         for (const KemCase& test : kems) {
             check_kem(test);
@@ -173,6 +214,10 @@ int main() {
         kpqc::SecretBytes secret{1, 2, 3, 4};
         kpqc::secure_clear(secret);
         require(secret.empty(), "explicit secret clearing");
+
+        kpqc::Bytes bytes{1, 2, 3, 4};
+        kpqc::secure_clear(bytes);
+        require(bytes.empty(), "explicit byte clearing");
 
         std::cout << "C++ API behavior checks passed across 16 parameter sets.\n";
         return 0;

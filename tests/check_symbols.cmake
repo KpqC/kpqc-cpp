@@ -13,8 +13,16 @@ endif()
 
 string(REPLACE "\n" ";" lines "${symbols}")
 foreach(line IN LISTS lines)
-    if(line MATCHES "[ \t]_?(samsungsds|cryptolab)_" OR
-       line MATCHES "[ \t]_?crypto_(kem|sign)_")
-        message(FATAL_ERROR "Unprefixed vendored symbol: ${line}")
+    if(NOT line MATCHES "[ \t][TDBRSCG] ([^ \t]+)$")
+        continue()
     endif()
+
+    set(symbol "${CMAKE_MATCH_1}")
+    if(symbol MATCHES "^_?kpqc_" OR
+       symbol MATCHES "^_+Z" OR
+       symbol MATCHES "^_+clang_call_terminate$")
+        continue()
+    endif()
+
+    message(FATAL_ERROR "Unexpected global definition: ${symbol}")
 endforeach()

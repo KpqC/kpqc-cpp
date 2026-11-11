@@ -9,6 +9,8 @@ namespace {
 constexpr int allocation_failure = -2;
 constexpr std::uint8_t empty_input = 0;
 
+using KeyPairFunction = int (*)(std::uint8_t*, std::uint8_t*);
+
 const std::uint8_t* input(const Bytes& value) noexcept {
     return value.empty() ? &empty_input : value.data();
 }
@@ -41,6 +43,28 @@ std::string error_message(const std::string& operation, int status) {
     return message.str();
 }
 
+template <typename ByteContainer>
+void clear_bytes(ByteContainer& value) noexcept {
+    detail::secure_erase(value.data(), value.size());
+    value.clear();
+}
+
+KeyPair make_key_pair(
+    std::size_t public_key_size,
+    std::size_t secret_key_size,
+    KeyPairFunction key_pair) {
+    KeyPair result{
+        Bytes(public_key_size), SecretBytes(secret_key_size)};
+    const int status =
+        key_pair(result.public_key.data(), result.secret_key.data());
+    if (status != 0) {
+        clear_bytes(result.public_key);
+        clear_bytes(result.secret_key);
+        throw Error("key generation", status);
+    }
+    return result;
+}
+
 }  // namespace
 
 namespace detail {
@@ -56,13 +80,11 @@ void secure_erase(void* data, std::size_t size) noexcept {
 }  // namespace detail
 
 void secure_clear(Bytes& value) noexcept {
-    detail::secure_erase(value.data(), value.size());
-    value.clear();
+    clear_bytes(value);
 }
 
 void secure_clear(SecretBytes& value) noexcept {
-    detail::secure_erase(value.data(), value.size());
-    value.clear();
+    clear_bytes(value);
 }
 
 Error::Error(std::string operation, int status)
@@ -99,15 +121,7 @@ const SignatureSizes& SignatureAlgorithm::sizes() const noexcept {
 }
 
 KeyPair SignatureAlgorithm::generate_key_pair() const {
-    KeyPair result{Bytes(sizes_.public_key), SecretBytes(sizes_.secret_key)};
-    const int status =
-        key_pair_(result.public_key.data(), result.secret_key.data());
-    if (status != 0) {
-        secure_clear(result.public_key);
-        secure_clear(result.secret_key);
-        throw Error("key generation", status);
-    }
-    return result;
+    return make_key_pair(sizes_.public_key, sizes_.secret_key, key_pair_);
 }
 
 Bytes SignatureAlgorithm::sign(
@@ -186,15 +200,7 @@ const KemSizes& KeyEncapsulationAlgorithm::sizes() const noexcept {
 }
 
 KeyPair KeyEncapsulationAlgorithm::generate_key_pair() const {
-    KeyPair result{Bytes(sizes_.public_key), SecretBytes(sizes_.secret_key)};
-    const int status =
-        key_pair_(result.public_key.data(), result.secret_key.data());
-    if (status != 0) {
-        secure_clear(result.public_key);
-        secure_clear(result.secret_key);
-        throw Error("key generation", status);
-    }
-    return result;
+    return make_key_pair(sizes_.public_key, sizes_.secret_key, key_pair_);
 }
 
 EncapsulatedSecret KeyEncapsulationAlgorithm::encapsulate(

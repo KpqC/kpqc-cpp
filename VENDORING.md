@@ -5,6 +5,10 @@ The upstream revisions are recorded in `THIRD_PARTY_NOTICES.md`; files not
 needed by the library, such as benchmarks and standalone test programs, are
 not copied.
 
+Each component retains its upstream source layout. Build integration and
+parameter-set selection are kept in the corresponding file under
+`cmake/algorithms` instead of normalizing or duplicating vendored sources.
+
 ## Local changes
 
 The following integration changes are intentionally maintained on top of the
