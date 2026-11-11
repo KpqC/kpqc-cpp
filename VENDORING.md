@@ -22,7 +22,8 @@ recorded upstream revisions:
   entropy; this file is not part of the installed library.
 - AIMer reports allocation failures separately, propagates entropy failures,
   stores SHA-3 contexts inline instead of terminating on allocation failure,
-  and clears released SHA-3 state.
+  clears released SHA-3 state, and serializes field elements explicitly so
+  transcript generation is independent of host byte order.
 - HAETAE and SMAUG-T propagate entropy failures.
 - NTRU+ propagates entropy failures and clears temporary key-generation and
   encapsulation material on both success and failure.
@@ -30,7 +31,8 @@ recorded upstream revisions:
   collisions between the bundled implementations.
 
 These changes do not alter algorithm parameters or wire formats. CI checks all
-1,600 records from the test-vector revision pinned in the workflow and README.
+1,600 records from the test-vector revision pinned in the workflow and README
+on both native runners and an emulated Linux s390x big-endian runner.
 
 ## Updating a component
 

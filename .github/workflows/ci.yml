@@ -49,6 +49,37 @@ jobs:
       - name: Test installed-package consumer
         run: ctest --test-dir consumer-build --output-on-failure
 
+  big-endian:
+    name: Linux s390x (big-endian)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out test vectors
+        uses: actions/checkout@v7
+        with:
+          repository: KpqC/kpqc-test-vectors
+          ref: d75490bf824faa4b148cd0b901a2eb13198fe0da
+          path: kpqc-test-vectors
+      - name: Set up s390x emulation
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: s390x
+      - name: Build and test on s390x
+        run: >-
+          docker run --rm --platform linux/s390x
+          -e KPQC_TEST_VECTORS=/workspace/kpqc-test-vectors
+          -v "${{ github.workspace }}:/workspace:ro"
+          -w /workspace
+          ubuntu:24.04
+          bash -c 'apt-get update &&
+          DEBIAN_FRONTEND=noninteractive apt-get install -y
+          --no-install-recommends build-essential cmake ca-certificates &&
+          cmake -S . -B /tmp/kpqc-build
+          -DCMAKE_BUILD_TYPE=Release -DKPQC_BUILD_TESTS=ON &&
+          cmake --build /tmp/kpqc-build --parallel 2 &&
+          ctest --test-dir /tmp/kpqc-build --output-on-failure'
+
   sanitizers:
     name: Linux sanitizers
     runs-on: ubuntu-latest

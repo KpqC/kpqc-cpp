@@ -66,7 +66,7 @@ void aim3_generate_linear(aim_lin_t *lin, const uint8_t iv[AIM3_IV_SIZE])
 
   for (size_t ell = 0; ell < AIM3_NUM_INPUT_SBOX + 1; ell++)
   {
-    hash_squeeze(&ctx, (uint8_t *)lin->vec_b[ell], AIM3_NUM_BYTES_FIELD);
+    hash_squeeze_gf(&ctx, &lin->vec_b[ell], 1);
   }
   hash_ctx_release(&ctx);
 }

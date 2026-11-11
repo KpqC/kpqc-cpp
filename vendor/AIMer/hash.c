@@ -44,6 +44,28 @@ void hash_squeeze(hash_instance *ctx, uint8_t *buffer, size_t buffer_len)
   shake_inc_squeeze(buffer, buffer_len, ctx);
 }
 
+void hash_update_gf(hash_instance *ctx, const gf *values, size_t count)
+{
+  uint8_t encoded[AIM3_NUM_BYTES_FIELD];
+
+  for (size_t i = 0; i < count; i++)
+  {
+    gf_to_bytes(encoded, values[i]);
+    hash_update(ctx, encoded, sizeof(encoded));
+  }
+}
+
+void hash_squeeze_gf(hash_instance *ctx, gf *values, size_t count)
+{
+  uint8_t encoded[AIM3_NUM_BYTES_FIELD];
+
+  for (size_t i = 0; i < count; i++)
+  {
+    hash_squeeze(ctx, encoded, sizeof(encoded));
+    gf_from_bytes(values[i], encoded);
+  }
+}
+
 void hash_ctx_release(hash_instance *ctx)
 {
   shake_inc_ctx_release(ctx);

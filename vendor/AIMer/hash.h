@@ -3,6 +3,7 @@
 #ifndef HASH_H
 #define HASH_H
 
+#include "field.h"
 #include "params.h"
 #include "common/fips202.h"
 #include <stddef.h>
@@ -31,6 +32,10 @@ void hash_update(hash_instance *ctx, const uint8_t *data, size_t data_len);
 void hash_final(hash_instance *ctx);
 #define hash_squeeze AIMER_NAMESPACE(hash_squeeze)
 void hash_squeeze(hash_instance *ctx, uint8_t *buffer, size_t buffer_len);
+#define hash_update_gf AIMER_NAMESPACE(hash_update_gf)
+void hash_update_gf(hash_instance *ctx, const gf *values, size_t count);
+#define hash_squeeze_gf AIMER_NAMESPACE(hash_squeeze_gf)
+void hash_squeeze_gf(hash_instance *ctx, gf *values, size_t count);
 #define hash_ctx_release AIMER_NAMESPACE(hash_ctx_release)
 void hash_ctx_release(hash_instance *ctx);
 

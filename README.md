@@ -9,6 +9,9 @@ schemes and the NTRU+ and SMAUG-T key encapsulation mechanisms (KEMs).
 - macOS or Linux
 - CMake 3.20 or newer and a C11 compiler when building from source
 
+Wire formats and deterministic algorithm outputs are independent of the
+host's byte order.
+
 ## Install
 
 Build and install the static library, replacing `/path/to/prefix` with the
@@ -167,6 +170,8 @@ The implementation is tested against all 1,600 KAT records in
 [KpqC/kpqc-test-vectors at commit d75490bf824f](https://github.com/KpqC/kpqc-test-vectors/tree/d75490bf824faa4b148cd0b901a2eb13198fe0da).
 The tests use a sibling `kpqc-test-vectors` checkout by default, or the path in
 `KPQC_TEST_VECTORS`. The vector files are not duplicated in this repository.
+CI runs the complete vector suite on both little-endian and big-endian targets
+to detect byte-order regressions.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKPQC_BUILD_TESTS=ON

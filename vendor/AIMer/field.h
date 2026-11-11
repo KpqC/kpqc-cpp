@@ -8,11 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#if defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
-    __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#error "AIMer reference implementation assumes a little-endian target"
-#endif
-
 #if SECURITY_BITS == 128
 typedef uint64_t gf[2];
 #elif SECURITY_BITS == 192

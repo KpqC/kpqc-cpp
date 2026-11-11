@@ -32,7 +32,10 @@ static void commit_and_expand_tape(tape_t *tape, uint8_t *commit,
   hash_final(&ctx);
 
   hash_squeeze(&ctx, commit, AIMER_COMMIT_SIZE);
-  hash_squeeze(&ctx, (uint8_t *)tape, sizeof(tape_t));
+  hash_squeeze_gf(&ctx, &tape->pt_share, 1);
+  hash_squeeze_gf(&ctx, tape->y_shares, AIMER_L);
+  hash_squeeze_gf(&ctx, tape->a_shares, AIMER_L + 1);
+  hash_squeeze_gf(&ctx, &tape->c_share, 1);
   hash_ctx_release(&ctx);
 }
 
@@ -194,7 +197,7 @@ static void run_phase_2_and_3(signature_t *sign,
 
   for (size_t rep = 0; rep < AIMER_T; rep++)
   {
-    hash_squeeze(&ctx_e, (uint8_t *)epsilons, sizeof(epsilons));
+    hash_squeeze_gf(&ctx_e, epsilons, AIMER_L + 1);
 
     crypto_declassify(epsilons, sizeof(epsilons));
 
@@ -232,10 +235,11 @@ static void run_phase_2_and_3(signature_t *sign,
                    mult_chk[rep][party].b_shares[ell], alpha[ell]);
       }
     }
-    hash_update(&ctx, (const uint8_t *)alpha_shares[rep],
-                AIM3_NUM_BYTES_FIELD * AIMER_N * (AIMER_L + 1));
-    hash_update(&ctx, (const uint8_t *)v_share[rep],
-                AIM3_NUM_BYTES_FIELD * AIMER_N);
+    for (size_t party = 0; party < AIMER_N; party++)
+    {
+      hash_update_gf(&ctx, alpha_shares[rep][party], AIMER_L + 1);
+    }
+    hash_update_gf(&ctx, v_share[rep], AIMER_N);
   }
   hash_final(&ctx);
   hash_squeeze(&ctx, sign->h_2, AIMER_COMMIT_SIZE);
@@ -580,7 +584,7 @@ static int crypto_sign_verify_internal(const uint8_t *sig, size_t siglen,
                      rep, i_bar);
 
     gf epsilons[AIMER_L + 1];
-    hash_squeeze(&ctx_e, (uint8_t *)epsilons, sizeof(epsilons));
+    hash_squeeze_gf(&ctx_e, epsilons, AIMER_L + 1);
 
     gf alpha[AIMER_L + 1];
     memset(alpha, 0, sizeof(alpha));
@@ -629,10 +633,11 @@ static int crypto_sign_verify_internal(const uint8_t *sig, size_t siglen,
     recompute_v_shares(v_shares, b_shares, alpha, i_bar);
 
     // v is opened
-    hash_update(&ctx_h2, (const uint8_t *)alpha_shares,
-                AIM3_NUM_BYTES_FIELD * AIMER_N * (AIMER_L + 1));
-    hash_update(&ctx_h2, (const uint8_t *)v_shares,
-                AIM3_NUM_BYTES_FIELD * AIMER_N);
+    for (size_t party = 0; party < AIMER_N; party++)
+    {
+      hash_update_gf(&ctx_h2, alpha_shares[party], AIMER_L + 1);
+    }
+    hash_update_gf(&ctx_h2, v_shares, AIMER_N);
     // NOTE: depend on the order of values in proof_t
     hash_update(&ctx_h1, sign->proofs[rep].delta_pt_bytes,
                 AIM3_NUM_BYTES_FIELD * (AIMER_L + 2));
