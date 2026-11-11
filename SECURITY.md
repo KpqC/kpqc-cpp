@@ -8,7 +8,7 @@ pre-1.0 releases may require upgrading to receive a fix.
 ## Reporting a vulnerability
 
 Do not open a public issue for a suspected vulnerability. Send the report to
-`osuolfou@gmail.com` with affected versions, reproduction steps, and potential
+`contact@kpqc.dev` with affected versions, reproduction steps, and potential
 impact. Please allow time to investigate before public disclosure.
 
 This project has not received an independent security audit and does not claim
